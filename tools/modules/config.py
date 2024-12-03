@@ -195,3 +195,4 @@ cfg.seed = 8888
 cfg.negative_prompt = 'Distorted, discontinuous, Ugly, blurry, low resolution, disfigured, disconnected limbs, Ugly faces, incomplete arms'
 # -----------------------------------------------------------------------------
 
+cfg.PretrainControl = None

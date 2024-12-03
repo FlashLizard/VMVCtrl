@@ -184,13 +184,18 @@ def worker(gpu, cfg):
     # [Model] UNet 
     model = MODEL.build(cfg.UNet, zero_y=zero_y_negative)
     model = model.to(gpu)
+    control_model = MODEL.build(cfg.ControlNet, zero_y=zero_y_negative)
+    control_model = control_model.to(gpu)
 
     resume_step = 1
     model, resume_step = PRETRAIN.build(cfg.Pretrain, model=model)
+    if cfg.PretrainControl:
+        control_model, resume_step = PRETRAIN.build(cfg.PretrainControl, model=control_model)
+    #TIP: use_lgm?
     # model.resume_lgm(cfg.lgm_pretrain) # initialize lgm
     torch.cuda.empty_cache()
 
-    #TIP: official don't use, so don't code for control_net
+    #TIP: the officail if false, so we don't code the ema version for control model yet
     if cfg.use_ema:
         ema = model.module.state_dict() if hasattr(model, 'module') else model.state_dict()
         ema = type(ema)([(k, ema[k].data.clone()) for k in list(ema.keys())[cfg.rank::cfg.world_size]])
@@ -201,22 +206,27 @@ def worker(gpu, cfg):
     #         v.requires_grad = False
 
     # optimizer
-    optimizer = optim.AdamW(params=filter(lambda p: p.requires_grad, model.parameters()),
-            lr=cfg.lr, weight_decay=cfg.weight_decay)
+    #TIP: change to control model
+    # optimizer = optim.AdamW(params=filter(lambda p: p.requires_grad, model.parameters()),
+    #         lr=cfg.lr, weight_decay=cfg.weight_decay)
+    optimizer = optim.AdamW(params=filter(lambda p: p.requires_grad, control_model.parameters()),
+        lr=cfg.lr, weight_decay=cfg.weight_decay)
     scaler = amp.GradScaler(enabled=cfg.use_fp16)
     
     # for k,v in model.named_parameters():
     #     if v.requires_grad:
     #         print(k)
 
-    #TIP: official don't use, so don't code for control_net
+    #TIP: the officail if false, so we don't code the ema version for control model yet
     if cfg.use_fsdp:
         config = {}
         config['compute_dtype'] = torch.float32
         config['mixed_precision'] = True
         model = FSDP(model, **config)
     else:
+        #PROB: right?
         model = DistributedDataParallel(model, device_ids=[gpu]) if not cfg.debug else model.to(gpu)
+        control_model = DistributedDataParallel(control_model, device_ids=[gpu]) if not cfg.debug else control_model.to(gpu)
 
     # scheduler
     scheduler = AnnealingLR(
@@ -237,7 +247,9 @@ def worker(gpu, cfg):
         autoencoder=autoencoder)
     
     for step in range(resume_step, cfg.num_steps + 1): 
-        model.train()
+        #PROB: right?
+        # model.train()
+        control_model.train()
         
         try:
             batch = next(rank_iter)
@@ -247,9 +259,9 @@ def worker(gpu, cfg):
         
         batch = to_device(batch, gpu, non_blocking=True)
         if cfg.vid_dataset['prepare_lgm']:
-            gs_data, ref_frame, _, video_data, camera_data, mask_data, captions, video_key = batch
+            gs_data, ref_frame, _, video_data, camera_data, mask_data, captions, video_key, sketch_data = batch
         else:
-            ref_frame, _, video_data, camera_data, mask_data, captions, video_key = batch
+            ref_frame, _, video_data, camera_data, mask_data, captions, video_key, sketch_data = batch
             gs_data = None
 
         batch_size, frames_num, _, _, _ = video_data.shape
@@ -258,6 +270,7 @@ def worker(gpu, cfg):
 
         fps_tensor =  torch.tensor([cfg.sample_fps] * batch_size, dtype=torch.long, device=gpu)
         video_data_list = torch.chunk(video_data, video_data.shape[0]//cfg.chunk_size,dim=0)
+        #TIP: to latent code
         with torch.no_grad():
             decode_data = []
             for chunk_data in video_data_list:
@@ -287,11 +300,13 @@ def worker(gpu, cfg):
         else:
             with amp.autocast(enabled=cfg.use_fp16):
                 loss = diffusion.loss(
-                        x0=video_data, 
+                        x0=video_data,
+                        hint=sketch_data, 
                         t=t_round, 
                         step=step,
                         rank=cfg.rank,
                         model=model, 
+                        control_model=control_model,
                         autoencoder=autoencoder,
                         model_kwargs=model_kwargs, 
                         use_div_loss=cfg.use_div_loss) # cfg.use_div_loss: False    loss: [80]
@@ -350,7 +365,7 @@ def worker(gpu, cfg):
                 # No validation in Objaverse
                 # visual_func.run(visual_kwards=visual_kwards, **input_kwards)
 
-
+                #PROB： what mean?
                 # validation
                 validation_text = "./data/dreamfusion420.txt"
                 assert os.path.exists(validation_text), f"validation text:{validation_text} do not exist!"
@@ -404,10 +419,15 @@ def worker(gpu, cfg):
                 if cfg.rank == 0:
                     logging.info(f'Begin to Save ema model to {local_ema_model_path}')
             if cfg.rank == 0:
-                local_model_path = osp.join(cfg.log_dir, f'checkpoints/non_ema_{step:08d}.pth')
+                #TIP: change to control model
+                # local_model_path = osp.join(cfg.log_dir, f'checkpoints/non_ema_{step:08d}.pth')
+                local_model_path = osp.join(cfg.log_dir, f'checkpoints/non_ema_control_{step:08d}.pth')
                 logging.info(f'Begin to Save model to {local_model_path}')
+                # save_dict = {
+                #     'state_dict': model.module.state_dict() if not cfg.debug else model.state_dict(),
+                #     'step': step}
                 save_dict = {
-                    'state_dict': model.module.state_dict() if not cfg.debug else model.state_dict(),
+                    'state_dict': control_model.module.state_dict() if not cfg.debug else control_model.model.state_dict(),
                     'step': step}
                 torch.save(save_dict, local_model_path)
                 logging.info(f'Save model to {local_model_path}')
