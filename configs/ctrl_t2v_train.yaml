@@ -1,4 +1,4 @@
-TASK_TYPE: train_t2v_entrance
+TASK_TYPE: train_ctrl_t2v_entrance
 ENABLE: true
 use_ema: false
 num_workers: 10
@@ -7,12 +7,13 @@ sample_fps: [8]
 resolution: [256, 256]
 vit_resolution: [224, 224]
 lgm_pretrain: './pretrained_models/model.safetensors'
+debug: True
 
 #TODO: change to sketch_video_dataset
 vid_dataset: {
     'type': 'SketchVideoDataset',
     #'data_list': ['./data/lvis_thres_28.json', ],
-    'data_list': ['/home/lishiyang/data/Gobjaverse/food/data.json', ],
+    'data_list': ['/home/lishiyang/data/Gobjaverse/food/small_data.json', ],
     'data_dir_list': ['/home/lishiyang/data/Gobjaverse/food', ],
     'caption_dir': './data/text_captions_cap3d.json',
     'vit_resolution': [224, 224],
@@ -61,7 +62,7 @@ UNet: {
     'use_sim_mask': False
 }
 
-ControlUNet: {
+ControlNet: {
     'type': 'ControlNet_T2VBase',
     'in_dim': 4,
     'y_dim': 1024,
@@ -118,7 +119,7 @@ Pretrain: {
     'type': pretrain_specific_strategies,
     'fix_weight': False,
     'grad_scale': 0.5,
-    'resume_checkpoint': './pretrained_models/modelscope_t2v/model_scope_0267000.pth',
+    'resume_checkpoint': '/home/lishiyang/data/VideoMV/non_ema_00365000.pth',
     'sd_keys_path': 'data/stable_diffusion_image_key_temporal_attention_x1.json',
 }
 

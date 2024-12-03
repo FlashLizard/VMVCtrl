@@ -10,9 +10,8 @@ import torch.nn.functional as F
 from rotary_embedding_torch import RotaryEmbedding
 from fairscale.nn.checkpoint import checkpoint_wrapper
 
-from tools.modules.ldm.models.diffusion.ddpm import LatentDiffusion
 from tools.modules.unet.unet_t2v import UNetSD_T2VBase
-from unet.util import *
+from tools.modules.unet.util import *
 # from .mha_flash import FlashAttentionBlock
 from utils.registry_class import MODEL
 
@@ -31,7 +30,7 @@ USE_TEMPORAL_TRANSFORMER = True
 from PIL import Image
 import numpy as np
 
-from cldm import TimestepEmbedSequential, conv_nd, zero_module
+from .cldm import TimestepEmbedSequential, conv_nd, zero_module
 
 def get_intr():
     h, w = 256, 256

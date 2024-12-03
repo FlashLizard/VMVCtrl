@@ -358,6 +358,7 @@ class UNetSD_T2VBase(nn.Module):
 
         # decoder
         for index, block in enumerate(self.output_blocks):
+            #TIP: skip connect
             x = torch.cat([x, xs.pop()], dim=1)
             x, name = self._forward_single(block, x, embeddings, context, time_rel_pos_bias, focus_present_mask, video_mask, reference=xs[-1] if len(xs) > 0 else None)
 

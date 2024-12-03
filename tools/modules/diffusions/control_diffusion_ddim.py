@@ -114,7 +114,8 @@ class ControlDiffusionDDIM(DiffusionDDIM):
             if self.loss_type == 'rescaled_kl':
                 loss = loss * self.num_timesteps
         elif self.loss_type in ['mse', 'rescaled_mse', 'l1', 'rescaled_l1']: # self.loss_type: mse
-            if model.module.use_lgm_refine:
+            
+            if (hasattr(model, 'module') and model.module.use_lgm_refine) or model.use_lgm_refine:
                 control = control_model(xt, hint, self._scale_timesteps(t), x0=x0, 
                                 sqrt_alphas_cumprod=self.sqrt_alphas_cumprod, 
                                 sqrt_one_minus_alphas_cumprod=self.sqrt_one_minus_alphas_cumprod,
@@ -144,7 +145,7 @@ class ControlDiffusionDDIM(DiffusionDDIM):
                 if self.loss_type.startswith('rescaled_'):
                     loss_vlb = loss_vlb * self.num_timesteps / 1000.0
 
-            if model.module.use_lgm_refine:
+            if (hasattr(model, 'module') and model.module.use_lgm_refine) or model.use_lgm_refine:
                 loss = out['loss']
                 # print("[Training PSNR]:", out['psnr'], "[Train Time]:", t)
             else:

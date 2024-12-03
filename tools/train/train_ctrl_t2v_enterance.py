@@ -34,7 +34,7 @@ from utils.registry_class import ENGINE, MODEL, DATASETS, EMBEDDER, AUTO_ENCODER
 
 
 @ENGINE.register_function()
-def train_t2v_entrance(cfg_update,  **kwargs):
+def train_ctrl_t2v_entrance(cfg_update,  **kwargs):
     for k, v in cfg_update.items():
         if isinstance(v, dict) and k in cfg:
             cfg[k].update(v)
@@ -68,6 +68,8 @@ def worker(gpu, cfg):
     '''
     cfg.gpu = gpu
     cfg.rank = cfg.pmi_rank * cfg.gpus_per_machine + gpu
+    #TIP: to debug
+    #cfg.debug = True
     if not cfg.debug:
         torch.cuda.set_device(gpu)
         torch.backends.cudnn.benchmark = True

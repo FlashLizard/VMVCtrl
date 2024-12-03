@@ -42,7 +42,7 @@ class SketchVideoDataset(VideoDataset):
 
         frames_path = [os.path.join(prefix, "{:05d}/{:05d}.png".format(frame_idx, frame_idx)) for frame_idx in range(24)]
         camera_path = [os.path.join(prefix, "{:05d}/{:05d}.json".format(frame_idx, frame_idx)) for frame_idx in range(24)]
-        sketch_path = os.path.join(prefix, "sk_00000.png")
+        sketch_path = os.path.join(prefix, "00000/sk_00000.png")
 
         frame_list = []
         fullreso_frame_list = []
@@ -72,7 +72,7 @@ class SketchVideoDataset(VideoDataset):
         camera_data = torch.stack(camera_list, dim=0) # [24,16]
         mask_data = torch.stack(mask_list, dim=0) 
         fullreso_mask_data = torch.stack(fullreso_mask_list, dim=0) 
-        sketch_data = Image.open(sketch_path).convert('RGB').resize((self.resolution[1], self.resolution[0]))
+        sketch_data = Image.open(sketch_path).convert('RGBA').resize((self.resolution[1], self.resolution[0]))
 
         video_data = torch.zeros(self.max_frames, 3,  self.resolution[1], self.resolution[0])
         fullreso_video_data = torch.zeros(self.max_frames, 3,  512, 512)
